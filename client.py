@@ -4,7 +4,6 @@ from ctypes import *
 from bindings import *
 import sys
 from typing import Any, Dict
-from configure import get_config
 import constants as c
 import time
 from urllib.parse import urlparse
