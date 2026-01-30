@@ -3,13 +3,15 @@ import ssl
 from ctypes import *
 from bindings import *
 import sys
-from typing import Any
+from typing import Any, Dict
 from configure import get_config
 import constants as c
 
 
 class HTTP2Client:
-    def __init__(self, scheme, host, path, port, verbose=False):
+    def __init__(
+        self, scheme: str, host: str, path: str, port: int, verbose: bool = False
+    ) -> None:
         self.scheme = scheme
         self.host = host
         self.path = path
@@ -45,7 +47,7 @@ class HTTP2Client:
             print("ERROR: create_socket")
             sys.exit(1)
 
-    def _create_callbacks(self):
+    def _create_callbacks(self) -> Dict[str, Any]:
         # these cbs contain args that are not used, but must not be deleted bc they are defined as such in the nghttp2 library
         def send_cb(
             session: Any, data: Any, length: int, flags: int, user_data: Any

@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 from urllib.parse import urlparse
 import socket
 import sys
@@ -7,7 +7,7 @@ from pathlib import Path
 import constants as c
 
 
-def get_config():
+def get_config() -> Dict[str, Any]:
     if len(sys.argv) != 2:
         print(f"ERROR: no json")
         sys.exit(1)
@@ -21,7 +21,7 @@ def get_config():
         return json.load(f)
 
 
-def create_pf(ip: str, port: int, loss_in: float, loss_out) -> None:
+def create_pf(ip: str, port: int, loss_in: float, loss_out: float) -> None:
     content = (
         f'blocked_ip="{ip}"\n'
         f'blocked_port="{port}"\n'
@@ -35,7 +35,7 @@ def create_pf(ip: str, port: int, loss_in: float, loss_out) -> None:
         f.write(content)
 
 
-def update_config(cfg, updates) -> None:
+def update_config(cfg: Dict[str, Any], updates: Dict[str, Any]) -> None:
     cfg.update(updates)
     f = Path(sys.argv[1])
     with f.open("w", encoding="utf-8") as f:
