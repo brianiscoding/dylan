@@ -18,9 +18,19 @@ sudo pfctl -f pf.conf &> /dev/null
 
 URL=$(jq -r '.url' $CONFIG_FILE)
 VERBOSE=$(jq -r '.verbose' $CONFIG_FILE)
-python3 ./client.py $URL $([ $VERBOSE = "true" ] && echo "--verbose")
 
-# logs
-sudo pfctl -vvsr 2> /dev/null
+start=$(gdate +%s%N)
+if timeout 15s python3 ./client.py $URL $([ $VERBOSE = "true" ] && echo "--verbose"); then
+    end=$(gdate +%s%N)
+    duration=$(( (end - start)/1000000 ))  # milliseconds
+    sudo pfctl -vvsr 2> /dev/null # logs
+    echo "SUCCESS: ${duration} ms"
+else
+    if [ $? -eq 124 ]; then
+        echo "ERROR: timeout 10s"
+    else
+        echo "ERROR: unknown"
+    fi
+fi
 
 ./scripts/clean.sh
