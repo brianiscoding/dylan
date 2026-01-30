@@ -1,0 +1,10 @@
+{
+  "url": "https://nghttp2.org",
+  "verbose": true,
+  "loss_out": 0,
+  "loss_in": 0.5,
+  "host": "nghttp2.org",
+  "port": 443,
+  "scheme": "https",
+  "path": "/"
+}
