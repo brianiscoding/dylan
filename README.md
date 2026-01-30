@@ -1,6 +1,13 @@
 # HTTP/2 Client with Packet Filter Configuration
 
-An HTTP/2 client implementation using nghttp2 library with ctypes bindings, integrated with macOS packet filter (PF) configuration for network testing and manipulation.
+An HTTP/2 client implementation using nghttp2 library with ctypes bindings, integrated with macOS packet filter (PF) configuration for network testing and packet loss simulation.
+
+## Features
+
+- **HTTP/2 Client**: Full HTTP/2 support via nghttp2 library with automatic ALPN negotiation
+- **Packet Filter Integration**: Configure macOS PF to simulate packet loss for testing network resilience
+- **Flexible Configuration**: JSON-based configuration for easy setup and management
+- **Verbose Mode**: Optional detailed output for debugging and inspection
 
 ## Dependencies
 
@@ -20,105 +27,154 @@ brew install nghttp2
 
 ## Project Structure
 
-- `client.py` - HTTP/2 client implementation with nghttp2 bindings
-- `bindings.py` - ctypes bindings for nghttp2 library
-- `configure.py` - Updates PF configuration with target host/port
-- `config.py` - Configuration file for URL and probability settings
-- `constants.py` - Constants for URL scheme mappings
-- `pf.conf` - Packet filter configuration file
-- `run.sh` - Convenience script to run the client
+```
+.
+├── client.py           # HTTP/2 client class implementation
+├── bindings.py         # ctypes bindings for nghttp2 library
+├── configure.py        # Configuration management and PF setup
+├── constants.py        # Constants for URL schemes, buffer sizes, etc.
+├── config.json         # Configuration file (URL, port, packet loss settings, etc.)
+├── pf.conf             # Generated packet filter rules (auto-created)
+├── scripts/
+│   ├── run.sh         # Main execution script
+│   └── clean.sh       # Cleanup script
+└── README.md          # This file
+```
 
 ## Configuration
 
-Edit `config.py` to set your target URL and packet filter probabilities:
+Edit `config.json` to customize your HTTP/2 client settings:
 
-```python
-url = "https://nghttp2.org"
-loss_in = 0.3   # Probability for incoming packet blocking
-loss_out = 0.34 # Probability for outgoing packet blocking
+```json
+{
+  "url": "https://nghttp2.org",
+  "verbose": true,
+  "loss_in": 0.4,
+  "loss_out": 0
+}
 ```
+
+### Configuration Fields
+
+- **url**: Target URL to fetch (scheme, host, and path are extracted from this)
+- **verbose**: Enable verbose output (true/false)
+- **loss_in**: Probability for incoming packet blocking (0.0 - 1.0)
+- **loss_out**: Probability for outgoing packet blocking (0.0 - 1.0)
 
 ## Running
 
-### Basic Usage
+### Quick Start
 
-Run the HTTP/2 client:
-
-```bash
-python3 client.py
-```
-
-Or use the convenience script:
+Execute the main script which handles everything:
 
 ```bash
-./run.sh
-```
-
-### With Configuration Setup
-
-To configure PF rules based on the URL in config.py:
-
-```bash
-./configure.py
+./scripts/run.sh
 ```
 
 This will:
 
-1. Resolve the hostname to an IP address
-2. Extract the port from the URL scheme
-3. Update `pf.conf` with the IP, port, and probability values
-4. Update `config.py` with the resolved host and port
+1. Check for nghttp2 installation (installs via Homebrew if missing)
+2. Run configure.py to update configuration and generate PF rules
+3. Load PF rules (requires sudo, will prompt for password)
+4. Execute the HTTP/2 client
+5. Display active PF rules
+6. Run cleanup script
 
-### Loading PF Rules
+### Manual Steps
 
-To load the PF configuration (requires sudo):
+If you prefer to run components separately:
 
 ```bash
+# Update configuration and generate PF rules
+python3 configure.py config.json
+
+# Load PF rules (requires sudo)
 sudo pfctl -f pf.conf
-```
 
-To view active PF rules:
+# Run the HTTP/2 client
+python3 client.py "https://nghttp2.org"
 
-```bash
-sudo pfctl -sr
-```
+# With verbose output
+python3 client.py "https://nghttp2.org" --verbose
 
-To flush all PF rules:
+# View active PF rules
+sudo pfctl -vvsr
 
-```bash
+# Flush PF rules
 sudo pfctl -F all
 ```
 
 ## API Usage
 
-The client module exports a single public function:
+### HTTP2Client Class
 
 ```python
-from client import client
+from client import HTTP2Client
 
-# Make an HTTP/2 GET request
-client(host="nghttp2.org", port=443, scheme="https", silent_=False)
+# Create and run a client
+client = HTTP2Client(
+    url="https/nghttp2.org",
+    verbose=True
+)
 ```
-
-Parameters:
-
-- `host` (str): Target hostname or IP address
-- `port` (int): Target port (80 for HTTP, 443 for HTTPS)
-- `scheme` (str): URL scheme ("http" or "https")
-- `silent_` (bool): If True, suppress response output (default: False)
 
 ## How It Works
 
-1. **HTTP/2 Client**: Establishes a connection using sockets, negotiates HTTP/2 via ALPN for HTTPS connections, and sends GET requests using the nghttp2 library
-2. **PF Integration**: Configures macOS packet filter to simulate network conditions by probabilistically blocking packets to/from the target
-3. **Configuration Management**: Automatically resolves hostnames and updates both PF rules and Python config
+### 1. Configuration Management (configure.py)
 
-## Notes
+- Reads `config.json`
+- Resolves hostname to IP address
+- Generates `pf.conf` with packet filter rules
 
-- The packet filter features require macOS and administrative privileges
-- PF configuration is useful for testing application behavior under unreliable network conditions
-- **Testing Limitations**: Some websites may not be suitable for testing:
-  - Sites that don't support HTTP/2 will fail to connect (HTTP/2 ALPN negotiation required)
-  - Many sites implement bot detection and rate limiting that may block automated connections
-  - CDN-protected sites may reject connections that don't include proper user-agent headers or cookies
-  - For reliable testing, use dedicated HTTP/2 test servers like `nghttp2.org` or `www.catan.com`
+### 2. HTTP/2 Client (client.py)
+
+- Accepts a URL as command-line argument
+- Parses URL to extract scheme, host, path, and port
+- Creates socket connection (raw for HTTP, SSL/TLS for HTTPS)
+- Negotiates HTTP/2 via ALPN for HTTPS connections
+- Sends GET request headers using nghttp2
+- Receives and displays response (if verbose mode enabled)
+- Gracefully closes session and connection
+
+### 3. Packet Filter Integration
+
+- PF rules are generated to simulate network conditions
+- `loss_in`: Probabilistically blocks incoming TCP packets from the target
+- `loss_out`: Probabilistically blocks outgoing TCP packets to the target
+- Useful for testing application behavior under unreliable network conditions
+
+## Testing Limitations
+
+Some websites may not be suitable for testing:
+
+- Sites that don't support HTTP/2 will fail to connect
+- Many sites implement bot detection and rate limiting that may block automated connections
+- CDN-protected sites may reject connections without proper headers
+- **Recommended test servers**: `nghttp2.org` or similar HTTP/2 testing services
+
+## Troubleshooting
+
+### Permission Denied on PF Rules
+
+- The script requires sudo to load PF rules
+- You'll be prompted for your password when running `./scripts/run.sh`
+
+### nghttp2 Not Found
+
+- The script will automatically attempt to install nghttp2 via Homebrew
+- Manual installation: `brew install nghttp2`
+
+### Connection Failed
+
+- Verify the target URL is reachable: `curl -I <url>`
+- Check that the target supports HTTP/2 (especially for HTTPS)
+- Ensure no local firewall is blocking the connection
+
+### Verbose Output Not Showing
+
+- Set `"verbose": true` in `config.json`
+- Run with `--verbose` flag: `python3 client.py "<url>" --verbose`
+
+## Dependencies in Detail
+
+- **nghttp2**: C library for HTTP/2 protocol

@@ -15,7 +15,10 @@ fi
 python3 ./configure.py $CONFIG_FILE
 
 sudo pfctl -f pf.conf &> /dev/null
-python3 ./client.py $CONFIG_FILE
+
+URL=$(jq -r '.url' $CONFIG_FILE)
+VERBOSE=$(jq -r '.verbose' $CONFIG_FILE)
+python3 ./client.py $URL $([ $VERBOSE = "true" ] && echo "--verbose")
 
 # logs
 sudo pfctl -vvsr 2> /dev/null

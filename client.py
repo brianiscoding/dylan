@@ -6,26 +6,45 @@ import sys
 from typing import Any, Dict
 from configure import get_config
 import constants as c
+import time
+from urllib.parse import urlparse
 
 
 class HTTP2Client:
     def __init__(
-        self, scheme: str, host: str, path: str, port: int, verbose: bool = False
+        self,
+        url: str,
+        verbose: bool = False,
     ) -> None:
-        self.scheme = scheme
-        self.host = host
-        self.path = path
-        self.port = port
+        self.url = url
         self.verbose = verbose
+
+        self.scheme = None
+        self.host = None
+        self.path = None
+        self.port = None
+        self._parse_url()
 
         self.streams = {}
         self.sock = self._create_socket()
+        if not self.sock:
+            sys.exit(1)
         # must store callbacks, otherwise get segfaulted
         self.callbacks = self._create_callbacks()
         self.session = self._create_session()
         self._send_settings_and_headers()
-        self._get()
+        rv = self._get()
         self._cleanup()
+        if rv:
+            print("ERROR: _get")
+            sys.exit(1)
+
+    def _parse_url(self) -> None:
+        parsed = urlparse(self.url)
+        self.scheme = parsed.scheme
+        self.host: str = parsed.netloc
+        self.path: str = parsed.path
+        self.port: int = c.SCHEME_MAP[parsed.scheme]
 
     def _create_socket(self) -> Any:
         # Create and establish a socket connection to the host
@@ -44,8 +63,7 @@ class HTTP2Client:
             else:
                 raise
         except:
-            print("ERROR: create_socket")
-            sys.exit(1)
+            return
 
     def _create_callbacks(self) -> Dict[str, Any]:
         # these cbs contain args that are not used, but must not be deleted bc they are defined as such in the nghttp2 library
@@ -128,7 +146,8 @@ class HTTP2Client:
             self._nv(":method", "GET"),
             self._nv(":scheme", self.scheme),
             self._nv(":authority", self.host),
-            self._nv(":path", self.path),
+            # will break without "/"
+            self._nv(":path", self.path if self.path != "" else "/"),
         )
 
         # blank settings for minimal
@@ -149,16 +168,20 @@ class HTTP2Client:
 
     def _get(self) -> None:
         # Receive and process HTTP/2 response data from the server
-        while True:
+        end_time = time.monotonic() + c.TIMEOUT
+        while time.monotonic() < end_time:
             if self.streams and all(self.streams[k] for k in self.streams):
-                break
+                return 0
             data = self.sock.recv(c.RECV_BUFFER_SIZE)
             if not data:
+                # wait to prevent too much power
+                time.sleep(c.NO_DATA_SLEEP)
                 continue
 
             buf = (c_uint8 * len(data)).from_buffer_copy(data)
             lib.nghttp2_session_mem_recv2(self.session, buf, len(data))
             lib.nghttp2_session_send(self.session)
+        return 1
 
     def _cleanup(self) -> None:
         # Close the HTTP/2 session and socket connection
@@ -169,14 +192,9 @@ class HTTP2Client:
 
 
 def main() -> None:
-    cfg = get_config()
-    HTTP2Client(
-        scheme=cfg["scheme"],
-        host=cfg["host"],
-        path=cfg["path"],
-        port=cfg["port"],
-        verbose=cfg["verbose"],
-    )
+    url = sys.argv[1]
+    verbose = "--verbose" in sys.argv
+    HTTP2Client(url=url, verbose=verbose)
 
 
 if __name__ == "__main__":

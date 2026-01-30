@@ -3,3 +3,4 @@
 sudo pfctl -F all &> /dev/null
 sudo pfctl -sr 2> /dev/null
 rm -f pf.conf
+rm -f tmp.json
