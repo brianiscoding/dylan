@@ -22,3 +22,5 @@ ENV/
 
 # macOS
 .DS_Store
+
+config.json

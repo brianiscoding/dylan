@@ -4,10 +4,6 @@ from ctypes.util import find_library
 
 lib = CDLL(find_library("nghttp2"))
 
-NGHTTP2_NO_ERROR = 0
-NGHTTP2_FLAG_NONE = 0
-NGHTTP2_NV_FLAG_NONE = 0
-
 
 class nghttp2_session(Structure):
     pass
