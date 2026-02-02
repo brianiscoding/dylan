@@ -86,7 +86,7 @@ class HTTP2Client:
 
         def send_cb(
             session: Any,
-            data: Any,
+            data: Any,  # bindings.LP_c_ubyte
             length: int,
             flags: int,
             user_data: Any,
@@ -102,7 +102,7 @@ class HTTP2Client:
             session: Any,
             flags: int,
             stream_id: int,
-            data: Any,
+            data: Any,  # bindings.LP_c_ubyte
             length: int,
             user_data: Any,
         ) -> int:
@@ -201,6 +201,7 @@ class HTTP2Client:
                 self.data = self._raw_data.decode(errors="ignore")
                 self.time = time.monotonic() - start_time
                 return
+            # bytes
             data = self._sock.recv(c.RECV_BUFFER_SIZE)
             if not data:
                 time.sleep(c.NO_DATA_SLEEP)
