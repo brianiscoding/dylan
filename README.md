@@ -1,180 +1,78 @@
-# HTTP/2 Client with Packet Filter Configuration
+# HTTP/2 Client with Packet Filter Network Simulation
 
-An HTTP/2 client implementation using nghttp2 library with ctypes bindings, integrated with macOS packet filter (PF) configuration for network testing and packet loss simulation.
+HTTP/2 client implementations for testing network resilience with simulated packet loss via macOS packet filter (PF).
 
-## Features
+## Implementations
 
-- **HTTP/2 Client**: Full HTTP/2 support via nghttp2 library with automatic ALPN negotiation
-- **Packet Filter Integration**: Configure macOS PF to simulate packet loss for testing network resilience
-- **Flexible Configuration**: JSON-based configuration for easy setup and management
-- **Verbose Mode**: Optional detailed output for debugging and inspection
+### Python Version (`client.py`, `configure_pf.py`)
 
-## Dependencies
+HTTP/2 client using nghttp2 C library via ctypes FFI bindings. Resolves hostnames, generates PF rules, and simulates packet loss.
 
-### System Requirements
-
-- **macOS** (for PF configuration features)
-- **Python 3.7+**
-- **nghttp2** library
-
-### Installing nghttp2
-
-Using Homebrew:
-
-```bash
-brew install nghttp2
-```
-
-## Project Structure
-
-```
-.
-├── client.py           # HTTP/2 client class implementation
-├── bindings.py         # ctypes bindings for nghttp2 library
-├── configure.py        # Configuration management and PF setup
-├── constants.py        # Constants for URL schemes, buffer sizes, etc.
-├── config.json         # Configuration file (URL, port, packet loss settings, etc.)
-├── pf.conf             # Generated packet filter rules (auto-created)
-├── scripts/
-│   ├── run.sh         # Main execution script
-│   └── clean.sh       # Cleanup script
-└── README.md          # This file
-```
-
-## Configuration
-
-Edit `config.json` to customize your HTTP/2 client settings:
-
-```json
-{
-  "url": "https://nghttp2.org",
-  "verbose": true,
-  "loss_in": 0.4,
-  "loss_out": 0
-}
-```
-
-### Configuration Fields
-
-- **url**: Target URL to fetch (scheme, host, and path are extracted from this)
-- **verbose**: Enable verbose output (true/false)
-- **loss_in**: Probability for incoming packet blocking (0.0 - 1.0)
-- **loss_out**: Probability for outgoing packet blocking (0.0 - 1.0)
-
-## Running
-
-### Quick Start
-
-Execute the main script which handles everything:
+**Quick Start:**
 
 ```bash
 ./scripts/run.sh
 ```
 
-This will:
-
-1. Check for nghttp2 installation (installs via Homebrew if missing)
-2. Run configure.py to update configuration and generate PF rules
-3. Load PF rules (requires sudo, will prompt for password)
-4. Execute the HTTP/2 client
-5. Display active PF rules
-6. Run cleanup script
-
-### Manual Steps
-
-If you prefer to run components separately:
+**Manual:**
 
 ```bash
-# Update configuration and generate PF rules
-python3 configure.py config.json
-
-# Load PF rules (requires sudo)
+python3 ./configure_pf.py config.json
 sudo pfctl -f pf.conf
-
-# Run the HTTP/2 client
-python3 client.py "https://nghttp2.org"
-
-# With verbose output
-python3 client.py "https://nghttp2.org" --verbose
-
-# View active PF rules
-sudo pfctl -vvsr
-
-# Flush PF rules
-sudo pfctl -F all
+python3 ./client.py "https://example.com"
 ```
 
-## API Usage
+**Config** (`config.json`):
 
-### HTTP2Client Class
-
-```python
-from client import HTTP2Client
-
-# Create and run a client
-client = HTTP2Client(
-    url="https/nghttp2.org",
-    verbose=True
-)
+```json
+{
+  "url": "https://httpbin.org/bytes/10000000",
+  "verbose": true,
+  "loss_in": 0.3,
+  "loss_out": 0.2
+}
 ```
+
+### Rust Version (`ru/`)
+
+Equivalent implementation in Rust using rustls for TLS and native nghttp2 bindings. See `ru/README.md` or `ru/Cargo.toml` for details.
+
+**Build:** `cargo build -C ru --release`
+**Run:** `./ru/target/release/ru "https://example.com"`
+
+## Requirements
+
+- macOS (for PF)
+- **Python**: Python 3.7+, nghttp2 library, jq, coreutils
+  ```bash
+  brew install nghttp2 jq coreutils
+  ```
+- **Rust**: Cargo, nghttp2 development files
+  ```bash
+  brew install nghttp2
+  cargo build -C ru --release
+  ```
+
+## Configuration Fields
+
+| Field      | Type    | Range   | Description                      |
+| ---------- | ------- | ------- | -------------------------------- |
+| `url`      | string  | -       | HTTP/2 URL to fetch              |
+| `verbose`  | boolean | -       | Display response                 |
+| `loss_in`  | float   | 0.0–1.0 | Incoming packet loss probability |
+| `loss_out` | float   | 0.0–1.0 | Outgoing packet loss probability |
 
 ## How It Works
 
-### 1. Configuration Management (configure.py)
-
-- Reads `config.json`
-- Resolves hostname to IP address
-- Generates `pf.conf` with packet filter rules
-
-### 2. HTTP/2 Client (client.py)
-
-- Accepts a URL as command-line argument
-- Parses URL to extract scheme, host, path, and port
-- Creates socket connection (raw for HTTP, SSL/TLS for HTTPS)
-- Negotiates HTTP/2 via ALPN for HTTPS connections
-- Sends GET request headers using nghttp2
-- Receives and displays response (if verbose mode enabled)
-- Gracefully closes session and connection
-
-### 3. Packet Filter Integration
-
-- PF rules are generated to simulate network conditions
-- `loss_in`: Probabilistically blocks incoming TCP packets from the target
-- `loss_out`: Probabilistically blocks outgoing TCP packets to the target
-- Useful for testing application behavior under unreliable network conditions
-
-## Testing Limitations
-
-Some websites may not be suitable for testing:
-
-- Sites that don't support HTTP/2 will fail to connect
-- Many sites implement bot detection and rate limiting that may block automated connections
-- CDN-protected sites may reject connections without proper headers
-- **Recommended test servers**: `nghttp2.org` or similar HTTP/2 testing services
+1. **resolve**: Hostname → IPv4/IPv6 addresses
+2. **configure**: Generate `pf.conf` with blocking rules
+3. **load**: `sudo pfctl -f pf.conf`
+4. **fetch**: HTTP/2 GET request (with packet loss)
+5. **cleanup**: Remove PF rules
 
 ## Troubleshooting
 
-### Permission Denied on PF Rules
-
-- The script requires sudo to load PF rules
-- You'll be prompted for your password when running `./scripts/run.sh`
-
-### nghttp2 Not Found
-
-- The script will automatically attempt to install nghttp2 via Homebrew
-- Manual installation: `brew install nghttp2`
-
-### Connection Failed
-
-- Verify the target URL is reachable: `curl -I <url>`
-- Check that the target supports HTTP/2 (especially for HTTPS)
-- Ensure no local firewall is blocking the connection
-
-### Verbose Output Not Showing
-
-- Set `"verbose": true` in `config.json`
-- Run with `--verbose` flag: `python3 client.py "<url>" --verbose`
-
-## Dependencies in Detail
-
-- **nghttp2**: C library for HTTP/2 protocol
+- **ALPN failed**: Target doesn't support HTTP/2. Try `https://nghttp2.org`
+- **Permission denied**: Script needs sudo for pfctl. Password will be prompted.
+- **Connection failed**: Check `ping <hostname>` and firewall rules
+- **Timeout**: Reduce packet loss or test with closer server
