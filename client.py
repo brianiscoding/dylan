@@ -204,7 +204,6 @@ class HTTP2Client:
             # bytes
             data = self._sock.recv(c.RECV_BUFFER_SIZE)
             if not data:
-                time.sleep(c.NO_DATA_SLEEP)
                 continue
 
             buf = (c_uint8 * len(data)).from_buffer_copy(data)

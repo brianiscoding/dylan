@@ -21,12 +21,12 @@ for loss_out in $(seq -f "%.2f" 0 .05 .2); do
     sudo pfctl -f pf.conf &>/dev/null
 
     # run the main script with timeout
-    start=$(gdate +%s%N)
+    start_ms=$(gdate +%s%3N)
     if timeout $TIMEOUT python3 client.py $URL; then
       # milliseconds
-      end=$(gdate +%s%N)
-      duration=$(((end - start) / 1000000))
-      echo "$loss_in $loss_out ${duration}ms"
+      end_ms=$(gdate +%s%3N)
+      duration_ms=$((end_ms - start_ms))
+      echo "$loss_in $loss_out ${duration_ms}ms"
     else
       if [ $? -eq 124 ]; then
         echo "$loss_in $loss_out >${TIMEOUT}"

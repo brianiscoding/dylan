@@ -16,18 +16,19 @@ python3 ./configure_pf.py $CONFIG_FILE
 sudo pfctl -f pf.conf &>/dev/null
 
 # run the main script with timeout
-start=$(gdate +%s%N)
+start_ms=$(gdate +%s%3N)
+# if timeout $TIMEOUT python3 ./client.py $URL $([ $VERBOSE = "true" ] && echo "--verbose") > output.log 2>&1; then
 if timeout $TIMEOUT python3 ./client.py $URL $([ $VERBOSE = "true" ] && echo "--verbose"); then
   # milliseconds
-  end=$(gdate +%s%N)
-  duration=$(((end - start) / 1000000))
+  end_ms=$(gdate +%s%3N)
+  duration_ms=$((end_ms - start_ms))
   # display pf status
   sudo pfctl -vvsr 2>/dev/null
   # log time
-  echo "SUCCESS: ${duration}ms"
+  echo "SUCCESS: ${duration_ms}ms"
 else
   if [ $? -eq 124 ]; then
-    echo "ERROR: timeout 10s"
+    echo "ERROR: timeout >${TIMEOUT}"
   else
     echo "ERROR: unknown"
     ./scripts/clean.sh
